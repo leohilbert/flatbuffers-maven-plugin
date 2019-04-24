@@ -1,8 +1,39 @@
-[![GitHub license](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://raw.githubusercontent.com/yfinkelstein/flatbuffers-maven-plugin/master/LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/org.yfinkelstein.maven.plugins/flatbuffers-maven-plugin.svg)](https://repo1.maven.org/maven2/org/yfinkelstein/maven/plugins/flatbuffers-maven-plugin/)
-[![Bintray](https://img.shields.io/bintray/v/yfinkelstein-opensource/maven/flatbuffers-maven-plugin.svg)](https://bintray.com/yfinkelstein-opensource/maven/flatbuffers-maven-plugin/)
-
 # Maven Flatbuffers Plugin
 
 A plugin that integrates flatbuffers compiler (flatc) into Maven lifecycle.
 This is project is inspired by xolstice/protobuf-maven-plugin.
+
+# Example usage
+0. install the flatc-binary
+1. Move your fbs-files to `src/main/flatbuffers`
+2. Add this to your pom.xml
+    ```
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </pluginRepository>
+    </pluginRepositories>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.github.leohilbert</groupId>
+                <artifactId>flatbuffers-maven-plugin</artifactId>
+                <version>1.0.1</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <flatcExecutable>flatc</flatcExecutable>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    ```
+3. run `mvn clean compile`

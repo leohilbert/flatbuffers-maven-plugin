@@ -47,7 +47,7 @@ public final class FlatcCompileJavaNanoMojo extends AbstractFlatcCompileMojo {
     @Parameter(
             required = true,
             property = "schemaOutputDirectory",
-            defaultValue = "${project.build.directory}/generated-sources/protobuf/schema"
+            defaultValue = "${project.build.directory}/generated-sources/flatbuffers/schema"
     )
     private File schemaOutputDirectory;
 

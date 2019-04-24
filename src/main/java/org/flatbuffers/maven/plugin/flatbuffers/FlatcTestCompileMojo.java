@@ -47,7 +47,7 @@ public final class FlatcTestCompileMojo extends AbstractFlatcTestCompileMojo {
     @Parameter(
             required = true,
             property = "javaTestOutputDirectory",
-            defaultValue = "${project.build.directory}/generated-test-sources/protobuf/java"
+            defaultValue = "${project.build.directory}/generated-test-sources/flatbuffers/java"
     )
     private File outputDirectory;
 
