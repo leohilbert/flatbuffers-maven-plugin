@@ -20,7 +20,7 @@ This is project is inspired by xolstice/protobuf-maven-plugin.
             <plugin>
                 <groupId>com.github.leohilbert</groupId>
                 <artifactId>flatbuffers-maven-plugin</artifactId>
-                <version>1.0.1</version>
+                <version>1.0.2</version>
                 <extensions>true</extensions>
                 <configuration>
                     <flatcExecutable>flatc</flatcExecutable>

@@ -16,11 +16,24 @@ package org.flatbuffers.maven.plugin.flatbuffers;
  * limitations under the License.
  */
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
+import static java.lang.String.format;
+import static org.codehaus.plexus.util.FileUtils.cleanDirectory;
+import static org.codehaus.plexus.util.FileUtils.copyStreamToFile;
+import static org.codehaus.plexus.util.FileUtils.getDefaultExcludesAsString;
+import static org.codehaus.plexus.util.FileUtils.getFiles;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.*;
+import org.apache.maven.artifact.resolver.ArtifactResolutionException;
+import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
+import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import org.apache.maven.artifact.resolver.ResolutionErrorHandler;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
@@ -45,14 +58,13 @@ import java.io.File;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-
-import static com.google.common.base.Preconditions.*;
-import static java.lang.Math.max;
-import static java.lang.String.format;
-import static org.codehaus.plexus.util.FileUtils.*;
 
 /**
  * Abstract Mojo implementation.
@@ -278,6 +290,17 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
     )
     protected boolean attachBinarySchema;
 
+    /**
+     * If set to {@code true}, the flatc will generate GRPC interfaces for the specified languages.
+     *
+     * @since 0.1.0
+     */
+    @Parameter(
+            required = true,
+            defaultValue = "false"
+    )
+    protected boolean genGrpc;
+
 
     /**
      * Sets the granularity in milliseconds of the last modification date
@@ -407,7 +430,7 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
                     }
                     if (flatcExecutable == null) {
                         // Try to fall back to 'flatc' in $PATH
-                        getLog().warn("No 'flatcExecutable' parameter is configured, using the default: 'flatc'");
+                        getLog().info("No 'flatcExecutable' parameter is configured, using the default: 'flatc'");
                         flatcExecutable = "flatc";
                     }
 
@@ -415,7 +438,8 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
                             .addFbPathElements(fbsSourceRoot)
                             .addAllFbPathElements(derivedFBPathElements)
                             .addFbPathElements(additionalFBPathElements)
-                            .addAllFbsFiles(fbsFiles);
+                            .addAllFbsFiles(fbsFiles)
+                            .genGrpc(genGrpc);
 
                     addFlatcBuilderParameters(flatcBuilder);
                     final Flatc flatc = flatcBuilder.build();
@@ -479,7 +503,6 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
      * with a fallback to {@code java.home} system property.
      *
      * @return path to java home directory.
-     *
      * @since 0.3.0
      */
     protected String detectJavaHome() {
@@ -526,13 +549,13 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
      */
     protected void addFlatcBuilderParameters(final ImmutableFlatc.Builder flatcBuilder) throws MojoExecutionException {
         if (writeBinarySchema) {
-//            final File descriptorSetFile = new File(getDescriptorSetOutputDirectory(), descriptorSetFileName);
-//            getLog().info("Will write descriptor set:");
-//            getLog().info(" " + descriptorSetFile.getAbsolutePath());
-//            flatcBuilder.withDescriptorSetFile(
-//                    descriptorSetFile,
-//                    includeDependenciesInDescriptorSet,
-//                    includeSourceInfoInDescriptorSet);
+            //            final File descriptorSetFile = new File(getDescriptorSetOutputDirectory(), descriptorSetFileName);
+            //            getLog().info("Will write descriptor set:");
+            //            getLog().info(" " + descriptorSetFile.getAbsolutePath());
+            //            flatcBuilder.withDescriptorSetFile(
+            //                    descriptorSetFile,
+            //                    includeDependenciesInDescriptorSet,
+            //                    includeSourceInfoInDescriptorSet);
         }
     }
 
@@ -546,7 +569,6 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
      * </ul>
      *
      * @return <code>true</code> if the mojo execution should be skipped.
-     *
      * @since 0.2.0
      */
     protected boolean skipMojo() {
@@ -602,7 +624,6 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
      *
      * @param files files to be checked for changes.
      * @return {@code true}, if at least one file has changes; {@code false}, if no files have changes.
-     *
      * @since 0.1.0
      */
     protected boolean hasDelta(final ImmutableSet<File> files) {
@@ -680,10 +701,10 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
      *
      * @param temporaryFbsFileDirectory temporary directory to serve as root for unpacked structure.
      * @param classpathElementFiles classpath elements, can be either jar files or directories.
-     * @throws IOException if one of the file operations fails.
-     * @throws MojoExecutionException if an internal error happens.
      * @return a set of import roots for flatc compiler
-     *         (these will all be subdirectories of the temporary directory).
+     * (these will all be subdirectories of the temporary directory).
+     * @throws IOException            if one of the file operations fails.
+     * @throws MojoExecutionException if an internal error happens.
      */
     protected ImmutableSet<File> makeFBPathFromJars(
             final File temporaryFbsFileDirectory,
@@ -806,6 +827,7 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
 
     /**
      * Used to retrieve flatc binary from the artifact
+     *
      * @param artifact
      * @return
      * @throws MojoExecutionException
@@ -908,27 +930,27 @@ abstract class AbstractFlatcMojo extends AbstractMojo {
             final String type,
             final String classifier
     ) throws MojoExecutionException {
-//        final VersionRange versionSpec;
-//        try {
-//            versionSpec = VersionRange.createFromVersionSpec(version);
-//        } catch (final InvalidVersionSpecificationException e) {
-//            throw new MojoExecutionException("Invalid version specification", e);
-//        }
-//
+        //        final VersionRange versionSpec;
+        //        try {
+        //            versionSpec = VersionRange.createFromVersionSpec(version);
+        //        } catch (final InvalidVersionSpecificationException e) {
+        //            throw new MojoExecutionException("Invalid version specification", e);
+        //        }
+        //
         Dependency dependency = new Dependency();
-        dependency.setGroupId( groupId );
-        dependency.setArtifactId( artifactId );
-        dependency.setVersion( version );
-        dependency.setScope( Artifact.SCOPE_RUNTIME );
-        dependency.setType( type );
-        dependency.setClassifier( classifier );
+        dependency.setGroupId(groupId);
+        dependency.setArtifactId(artifactId);
+        dependency.setVersion(version);
+        dependency.setScope(Artifact.SCOPE_RUNTIME);
+        dependency.setType(type);
+        dependency.setClassifier(classifier);
         return repositorySystem.createDependencyArtifact(dependency);
-//        return artifactFactory.createDependencyArtifact(
-//                groupId,
-//                artifactId,
-//                versionSpec,
-//                type,
-//                classifier,
-//                Artifact.SCOPE_RUNTIME);
+        //        return artifactFactory.createDependencyArtifact(
+        //                groupId,
+        //                artifactId,
+        //                versionSpec,
+        //                type,
+        //                classifier,
+        //                Artifact.SCOPE_RUNTIME);
     }
 }

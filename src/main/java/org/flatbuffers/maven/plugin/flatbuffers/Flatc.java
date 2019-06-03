@@ -16,6 +16,10 @@ package org.flatbuffers.maven.plugin.flatbuffers;
  * limitations under the License.
  */
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,9 +33,6 @@ import org.immutables.value.Value;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.util.List;
-
-import static com.google.common.base.Preconditions.*;
-import static com.google.common.collect.Lists.newLinkedList;
 
 /**
  * This class represents an invokable configuration of the {@code flatc} compiler.
@@ -74,13 +75,19 @@ abstract class Flatc {
     abstract File schemaOutputDirectory();
 
     @Value.Default
-    boolean genJava() { return true; }
+    boolean genJava() {
+        return true;
+    }
 
     @Value.Default
-    boolean genGrpc() { return false; }
+    boolean genGrpc() {
+        return false;
+    }
 
     @Value.Default
-    boolean genSchema() { return true; }
+    boolean genSchema() {
+        return true;
+    }
 
     /**
      * A buffer to consume standard output from the {@code flatc} executable.
@@ -108,18 +115,18 @@ abstract class Flatc {
 
     @Value.Check
     protected void check() {
-//        Preconditions.checkState(!nonEmptyNumbers().isEmpty(),
-//                "'nonEmptyNumbers' should have at least one number");
+        //        Preconditions.checkState(!nonEmptyNumbers().isEmpty(),
+        //                "'nonEmptyNumbers' should have at least one number");
 
         if (javaOutputDirectory() != null)
             checkArgument(
-                javaOutputDirectory().isDirectory(),
-                "'javaOutputDirectory' is not a directory: %s", javaOutputDirectory());
+                    javaOutputDirectory().isDirectory(),
+                    "'javaOutputDirectory' is not a directory: %s", javaOutputDirectory());
 
         if (schemaOutputDirectory() != null)
             checkArgument(
-                schemaOutputDirectory().isDirectory(),
-                "'schemaOutputDirectory' is not a directory: %s", schemaOutputDirectory());
+                    schemaOutputDirectory().isDirectory(),
+                    "'schemaOutputDirectory' is not a directory: %s", schemaOutputDirectory());
 
     }
 
@@ -127,13 +134,13 @@ abstract class Flatc {
     protected void checkFbsDirectories() {
         for (File fbPathElement : fbPathElements()) {
             checkNotNull(fbPathElement);
-            checkArgument (fbPathElement.isDirectory());
+            checkArgument(fbPathElement.isDirectory());
         }
     }
 
     @Value.Check
     protected void checkFilesInPath() {
-        for(File fbsFile : fbsFiles()) {
+        for (File fbsFile : fbsFiles()) {
             checkNotNull(fbsFile);
             checkArgument(fbsFile.isFile());
             checkArgument(fbsFile.getName().endsWith(".fbs"));
@@ -176,7 +183,7 @@ abstract class Flatc {
     public int execute(final Log log) throws CommandLineException, InterruptedException {
         final Commandline cl = new Commandline();
         cl.setExecutable(executable());
-        cl.addArguments(buildFlatcCommand().toArray(new String[] {}));
+        cl.addArguments(buildFlatcCommand().toArray(new String[]{}));
         // There is a race condition in JDK that may sporadically prevent process creation on Linux
         // https://bugs.openjdk.java.net/browse/JDK-8068370
         // In order to mitigate that, retry up to 2 more times before giving up
@@ -212,13 +219,9 @@ abstract class Flatc {
         }
         if (javaOutputDirectory() != null) {
             command.add("-o", javaOutputDirectory().getAbsolutePath());
-//
-//            // For now we assume all custom plugins produce Java output
-//            for (final FlatcPlugin plugin : plugins) {
-//                final File pluginExecutable = plugin.getPluginExecutableFile(pluginDirectory);
-//                command.add("--plugin=protoc-gen-" + plugin.getId() + '=' + pluginExecutable);
-//                command.add("--" + plugin.getId() + "_out=" + javaOutputDirectory);
-//            }
+        }
+        if (genGrpc()) {
+            command.add("--grpc");
         }
         for (final File fbsFile : fbsFiles()) {
             command.add(fbsFile.toString());
